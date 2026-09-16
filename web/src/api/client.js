@@ -1,6 +1,6 @@
 // Alamat backend API. Default-nya langsung ke localhost:4000 — tidak perlu file .env.
 // Kalau backend dipindah ke alamat lain (misal saat deploy), tinggal ganti baris di bawah ini.
-const BASE_URL = 'http://localhost:4000/api'
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api'
 
 async function request(path, options = {}) {
   const res = await fetch(`${BASE_URL}${path}`, {
