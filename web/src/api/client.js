@@ -2,9 +2,23 @@
 // Kalau backend dipindah ke alamat lain (misal saat deploy), tinggal ganti baris di bawah ini.
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api'
 
+// Device ID unik per browser/perangkat, dibuat sekali dan disimpan di localStorage,
+// supaya data tiap orang tidak tercampur.
+function getDeviceId() {
+  let id = localStorage.getItem('dompetku_device_id')
+  if (!id) {
+    id = crypto.randomUUID()
+    localStorage.setItem('dompetku_device_id', id)
+  }
+  return id
+}
+
 async function request(path, options = {}) {
   const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Device-Id': getDeviceId()
+    },
     ...options
   })
 

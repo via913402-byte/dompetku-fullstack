@@ -1,47 +1,48 @@
 import 'dotenv/config'
-import { DatabaseSync } from 'node:sqlite'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import pg from 'pg'
 import { randomUUID } from 'node:crypto'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const defaultPath = path.join(__dirname, '..', 'data', 'dompetku.sqlite')
-const dbPath = process.env.DB_PATH
-  ? path.resolve(__dirname, '..', process.env.DB_PATH)
-  : defaultPath
+const { Pool } = pg
 
-export const db = new DatabaseSync(dbPath)
-db.exec('PRAGMA journal_mode = WAL')
-db.exec('PRAGMA foreign_keys = ON')
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+})
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS categories (
-    key TEXT PRIMARY KEY,
-    label TEXT NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
-    budget_limit INTEGER DEFAULT 0
-  );
+async function init() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS categories (
+      key TEXT PRIMARY KEY,
+      label TEXT NOT NULL,
+      type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
+      budget_limit INTEGER DEFAULT 0
+    );
 
-  CREATE TABLE IF NOT EXISTS transactions (
-    id TEXT PRIMARY KEY,
-    type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
-    category TEXT NOT NULL REFERENCES categories(key),
-    note TEXT,
-    amount INTEGER NOT NULL CHECK (amount > 0),
-    date TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
+    CREATE TABLE IF NOT EXISTS transactions (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
+      category TEXT NOT NULL REFERENCES categories(key),
+      note TEXT,
+      amount INTEGER NOT NULL CHECK (amount > 0),
+      date TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (to_char(now(), 'YYYY-MM-DD HH24:MI:SS'))
+    );
 
-  CREATE TABLE IF NOT EXISTS bills (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    amount INTEGER NOT NULL CHECK (amount > 0),
-    due_day INTEGER NOT NULL CHECK (due_day BETWEEN 1 AND 31),
-    is_paid INTEGER NOT NULL DEFAULT 0,
-    note TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-`)
+    CREATE TABLE IF NOT EXISTS bills (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      amount INTEGER NOT NULL CHECK (amount > 0),
+      due_day INTEGER NOT NULL CHECK (due_day BETWEEN 1 AND 31),
+      is_paid INTEGER NOT NULL DEFAULT 0,
+      note TEXT,
+      created_at TEXT NOT NULL DEFAULT (to_char(now(), 'YYYY-MM-DD HH24:MI:SS'))
+    );
+  `)
+
+  await seedCategoriesIfEmpty()
+  await seedTransactionsIfEmpty()
+  await seedBillsIfEmpty()
+}
 
 const defaultCategories = [
   { key: 'gaji', label: 'Gaji', type: 'income', budget_limit: 0 },
@@ -55,29 +56,20 @@ const defaultCategories = [
   { key: 'lainnya-keluar', label: 'Lainnya', type: 'expense', budget_limit: 300000 }
 ]
 
-function runInTransaction(fn) {
-  db.exec('BEGIN')
-  try {
-    fn()
-    db.exec('COMMIT')
-  } catch (err) {
-    db.exec('ROLLBACK')
-    throw err
+async function seedCategoriesIfEmpty() {
+  const { rows } = await pool.query('SELECT COUNT(*)::int AS n FROM categories')
+  if (rows[0].n > 0) return
+  for (const c of defaultCategories) {
+    await pool.query(
+      'INSERT INTO categories (key, label, type, budget_limit) VALUES ($1, $2, $3, $4)',
+      [c.key, c.label, c.type, c.budget_limit]
+    )
   }
 }
 
-function seedCategoriesIfEmpty() {
-  const count = db.prepare('SELECT COUNT(*) AS n FROM categories').get().n
-  if (count > 0) return
-  const insert = db.prepare(
-    'INSERT INTO categories (key, label, type, budget_limit) VALUES (@key, @label, @type, @budget_limit)'
-  )
-  runInTransaction(() => defaultCategories.forEach((r) => insert.run(r)))
-}
-
-function seedTransactionsIfEmpty() {
-  const count = db.prepare('SELECT COUNT(*) AS n FROM transactions').get().n
-  if (count > 0) return
+async function seedTransactionsIfEmpty() {
+  const { rows } = await pool.query('SELECT COUNT(*)::int AS n FROM transactions')
+  if (rows[0].n > 0) return
 
   const today = new Date()
   const iso = (offsetDays) => {
@@ -102,15 +94,17 @@ function seedTransactionsIfEmpty() {
     { type: 'income', category: 'gaji', note: 'Gaji bulan lalu', amount: 8500000, date: iso(33) }
   ]
 
-  const insert = db.prepare(
-    'INSERT INTO transactions (id, type, category, note, amount, date) VALUES (@id, @type, @category, @note, @amount, @date)'
-  )
-  runInTransaction(() => sample.forEach((r) => insert.run({ id: randomUUID(), ...r })))
+  for (const t of sample) {
+    await pool.query(
+      'INSERT INTO transactions (id, type, category, note, amount, date) VALUES ($1, $2, $3, $4, $5, $6)',
+      [randomUUID(), t.type, t.category, t.note, t.amount, t.date]
+    )
+  }
 }
 
-function seedBillsIfEmpty() {
-  const count = db.prepare('SELECT COUNT(*) AS n FROM bills').get().n
-  if (count > 0) return
+async function seedBillsIfEmpty() {
+  const { rows } = await pool.query('SELECT COUNT(*)::int AS n FROM bills')
+  if (rows[0].n > 0) return
 
   const sample = [
     { name: 'Listrik PLN', amount: 350000, due_day: 5, is_paid: 0, note: 'Tagihan bulanan' },
@@ -119,12 +113,12 @@ function seedBillsIfEmpty() {
     { name: 'Langganan Streaming', amount: 54000, due_day: 20, is_paid: 1, note: null }
   ]
 
-  const insert = db.prepare(
-    'INSERT INTO bills (id, name, amount, due_day, is_paid, note) VALUES (@id, @name, @amount, @due_day, @is_paid, @note)'
-  )
-  runInTransaction(() => sample.forEach((r) => insert.run({ id: randomUUID(), ...r })))
+  for (const b of sample) {
+    await pool.query(
+      'INSERT INTO bills (id, name, amount, due_day, is_paid, note) VALUES ($1, $2, $3, $4, $5, $6)',
+      [randomUUID(), b.name, b.amount, b.due_day, b.is_paid, b.note]
+    )
+  }
 }
 
-seedCategoriesIfEmpty()
-seedTransactionsIfEmpty()
-seedBillsIfEmpty()
+await init()
