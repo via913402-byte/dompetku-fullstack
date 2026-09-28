@@ -2,15 +2,14 @@
 import { formatRupiah } from '../utils/format'
 
 defineProps({
-  bills: { type: Array, required: true } // [{ id, name, amount, dueDay, isPaid, note }]
+  bills: { type: Array, required: true }
 })
 
-defineEmits(['toggle-paid', 'delete'])
+defineEmits(['toggle-paid', 'delete', 'edit'])
 </script>
 
 <template>
   <div class="bills">
-    <!-- Empty state -->
     <div v-if="!bills.length" class="empty">
       Belum ada tagihan. Tambahkan angsuran HP, listrik, internet, dll.
     </div>
@@ -23,7 +22,7 @@ defineEmits(['toggle-paid', 'delete'])
           <th>Jatuh Tempo</th>
           <th class="right">Jumlah</th>
           <th>Status</th>
-          <th></th>
+          <th class="actions-col"></th>
         </tr>
       </thead>
       <tbody>
@@ -43,8 +42,19 @@ defineEmits(['toggle-paid', 'delete'])
               {{ bill.isPaid ? 'Lunas' : 'Belum' }}
             </button>
           </td>
-          <td class="right">
-            <button class="del" @click="$emit('delete', bill.id)" aria-label="Hapus">✕</button>
+          <td class="actions">
+            <button class="icon-btn" @click="$emit('edit', bill)" aria-label="Edit" title="Edit">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </button>
+            <button class="icon-btn danger" @click="$emit('delete', bill.id)" aria-label="Hapus" title="Hapus">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+            </button>
           </td>
         </tr>
       </tbody>
@@ -70,7 +80,21 @@ defineEmits(['toggle-paid', 'delete'])
           >
             {{ bill.isPaid ? '✓ Lunas' : 'Belum bayar' }}
           </button>
-          <button class="del" @click="$emit('delete', bill.id)">Hapus</button>
+
+          <div class="icon-group">
+            <button class="icon-btn" @click="$emit('edit', bill)" aria-label="Edit" title="Edit">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </button>
+            <button class="icon-btn danger" @click="$emit('delete', bill.id)" aria-label="Hapus" title="Hapus">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -78,9 +102,7 @@ defineEmits(['toggle-paid', 'delete'])
 </template>
 
 <style scoped>
-.bills {
-  width: 100%;
-}
+.bills { width: 100%; }
 
 .empty {
   text-align: center;
@@ -89,7 +111,7 @@ defineEmits(['toggle-paid', 'delete'])
   font-size: 14px;
 }
 
-/* ===== Desktop Table ===== */
+/* Desktop Table */
 .bills-table {
   width: 100%;
   border-collapse: collapse;
@@ -105,9 +127,8 @@ thead th {
   border-bottom: 1px solid var(--line);
 }
 
-th.right, td.right {
-  text-align: right;
-}
+th.right, td.right { text-align: right; }
+.actions-col { width: 90px; }
 
 tbody td {
   padding: 14px 10px;
@@ -115,24 +136,11 @@ tbody td {
   vertical-align: middle;
 }
 
-tbody tr:last-child td {
-  border-bottom: none;
-}
+tbody tr:last-child td { border-bottom: none; }
 
-.bill-name {
-  font-weight: 500;
-  color: var(--ink);
-}
-
-.bill-note {
-  font-size: 12px;
-  color: var(--ink-soft);
-  margin-top: 2px;
-}
-
-.muted {
-  color: var(--ink-soft);
-}
+.bill-name { font-weight: 500; color: var(--ink); }
+.bill-note { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+.muted { color: var(--ink-soft); }
 
 .status {
   border: none;
@@ -154,22 +162,38 @@ tbody tr:last-child td {
   color: var(--negative);
 }
 
-.del {
-  background: transparent;
-  border: none;
-  color: var(--ink-soft);
-  cursor: pointer;
-  font-size: 13px;
-  padding: 4px 8px;
-  border-radius: 4px;
+.actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
 }
 
-.del:hover {
+/* Icon Buttons */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.icon-btn:hover {
   background: var(--line-soft);
+  color: var(--ink);
+}
+
+.icon-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.1);
   color: var(--negative);
 }
 
-/* ===== Mobile Cards ===== */
+/* Mobile Cards */
 .bills-cards {
   display: flex;
   flex-direction: column;
@@ -223,12 +247,9 @@ tbody tr:last-child td {
   font-size: 13px;
 }
 
-.bill-actions .del {
-  font-size: 12.5px;
-  color: var(--negative);
-  background: rgba(239, 68, 68, 0.08);
-  padding: 9px 14px;
-  border-radius: 8px;
+.icon-group {
+  display: flex;
+  gap: 2px;
 }
 
 /* Visibility */
