@@ -1,11 +1,34 @@
 <script setup>
+import { ref } from 'vue'
 import { formatRupiah } from '../utils/format'
+import ConfirmModal from './ConfirmModal.vue'
 
 defineProps({
   bills: { type: Array, required: true }
 })
 
-defineEmits(['toggle-paid', 'delete', 'edit'])
+const emit = defineEmits(['toggle-paid', 'delete', 'edit'])
+
+const confirmOpen = ref(false)
+const pendingDeleteId = ref(null)
+
+function askDelete(id) {
+  pendingDeleteId.value = id
+  confirmOpen.value = true
+}
+
+function confirmDelete() {
+  if (pendingDeleteId.value) {
+    emit('delete', pendingDeleteId.value)
+  }
+  confirmOpen.value = false
+  pendingDeleteId.value = null
+}
+
+function cancelDelete() {
+  confirmOpen.value = false
+  pendingDeleteId.value = null
+}
 </script>
 
 <template>
@@ -49,7 +72,7 @@ defineEmits(['toggle-paid', 'delete', 'edit'])
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
               </svg>
             </button>
-            <button class="icon-btn danger" @click="$emit('delete', bill.id)" aria-label="Hapus" title="Hapus">
+            <button class="icon-btn danger" @click="askDelete(bill.id)" aria-label="Hapus" title="Hapus">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="3 6 5 6 21 6"/>
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -88,7 +111,7 @@ defineEmits(['toggle-paid', 'delete', 'edit'])
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
               </svg>
             </button>
-            <button class="icon-btn danger" @click="$emit('delete', bill.id)" aria-label="Hapus" title="Hapus">
+            <button class="icon-btn danger" @click="askDelete(bill.id)" aria-label="Hapus" title="Hapus">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="3 6 5 6 21 6"/>
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -99,6 +122,17 @@ defineEmits(['toggle-paid', 'delete', 'edit'])
       </div>
     </div>
   </div>
+
+  <!-- Modal Konfirmasi -->
+  <ConfirmModal
+    :open="confirmOpen"
+    title="Hapus tagihan?"
+    message="Data yang dihapus tidak bisa dikembalikan. Yakin ingin menghapus?"
+    confirm-text="Ya, Hapus"
+    cancel-text="Batal"
+    @confirm="confirmDelete"
+    @cancel="cancelDelete"
+  />
 </template>
 
 <style scoped>
@@ -111,7 +145,6 @@ defineEmits(['toggle-paid', 'delete', 'edit'])
   font-size: 14px;
 }
 
-/* Desktop Table */
 .bills-table {
   width: 100%;
   border-collapse: collapse;
@@ -168,7 +201,6 @@ tbody tr:last-child td { border-bottom: none; }
   justify-content: flex-end;
 }
 
-/* Icon Buttons */
 .icon-btn {
   display: inline-flex;
   align-items: center;
@@ -193,7 +225,6 @@ tbody tr:last-child td { border-bottom: none; }
   color: var(--negative);
 }
 
-/* Mobile Cards */
 .bills-cards {
   display: flex;
   flex-direction: column;
@@ -252,7 +283,6 @@ tbody tr:last-child td { border-bottom: none; }
   gap: 2px;
 }
 
-/* Visibility */
 .desktop-only { display: table; }
 .mobile-only { display: none; }
 

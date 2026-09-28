@@ -1,5 +1,7 @@
 <script setup>
+import { ref } from 'vue'
 import { formatDate, formatRupiah } from '../utils/format'
+import ConfirmModal from './ConfirmModal.vue'
 
 defineProps({
   transactions: { type: Array, required: true },
@@ -7,7 +9,28 @@ defineProps({
   compact: { type: Boolean, default: false }
 })
 
-defineEmits(['delete', 'edit'])
+const emit = defineEmits(['delete', 'edit'])
+
+const confirmOpen = ref(false)
+const pendingDeleteId = ref(null)
+
+function askDelete(id) {
+  pendingDeleteId.value = id
+  confirmOpen.value = true
+}
+
+function confirmDelete() {
+  if (pendingDeleteId.value) {
+    emit('delete', pendingDeleteId.value)
+  }
+  confirmOpen.value = false
+  pendingDeleteId.value = null
+}
+
+function cancelDelete() {
+  confirmOpen.value = false
+  pendingDeleteId.value = null
+}
 </script>
 
 <template>
@@ -36,13 +59,13 @@ defineEmits(['delete', 'edit'])
           {{ t.type === 'income' ? '+' : '−' }}{{ formatRupiah(t.amount) }}
         </td>
         <td v-if="!compact" class="actions">
-          <button class="icon-btn" @click="$emit('edit', t)" aria-label="Edit transaksi" title="Edit">
+          <button class="icon-btn" @click="$emit('edit', t)" aria-label="Edit" title="Edit">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
             </svg>
           </button>
-          <button class="icon-btn danger" @click="$emit('delete', t.id)" aria-label="Hapus transaksi" title="Hapus">
+          <button class="icon-btn danger" @click="askDelete(t.id)" aria-label="Hapus" title="Hapus">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="3 6 5 6 21 6"/>
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -79,7 +102,7 @@ defineEmits(['delete', 'edit'])
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
           </svg>
         </button>
-        <button class="icon-btn danger" @click="$emit('delete', t.id)" aria-label="Hapus" title="Hapus">
+        <button class="icon-btn danger" @click="askDelete(t.id)" aria-label="Hapus" title="Hapus">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="3 6 5 6 21 6"/>
             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -88,10 +111,20 @@ defineEmits(['delete', 'edit'])
       </div>
     </div>
   </div>
+
+  <!-- Modal Konfirmasi -->
+  <ConfirmModal
+    :open="confirmOpen"
+    title="Hapus transaksi?"
+    message="Data yang dihapus tidak bisa dikembalikan. Yakin ingin menghapus?"
+    confirm-text="Ya, Hapus"
+    cancel-text="Batal"
+    @confirm="confirmDelete"
+    @cancel="cancelDelete"
+  />
 </template>
 
 <style scoped>
-/* ===== Desktop Table ===== */
 .tx-table {
   width: 100%;
   border-collapse: collapse;
@@ -108,7 +141,6 @@ thead th {
 }
 
 th.right, td.right { text-align: right; }
-
 .actions-col { width: 90px; }
 
 tbody td {
@@ -136,7 +168,6 @@ tbody tr:last-child td { border-bottom: none; }
   justify-content: flex-end;
 }
 
-/* ===== Icon Buttons ===== */
 .icon-btn {
   display: inline-flex;
   align-items: center;
@@ -161,7 +192,6 @@ tbody tr:last-child td { border-bottom: none; }
   color: var(--negative);
 }
 
-/* ===== Mobile Cards ===== */
 .tx-cards {
   display: flex;
   flex-direction: column;
@@ -222,7 +252,6 @@ tbody tr:last-child td { border-bottom: none; }
   flex-shrink: 0;
 }
 
-/* Visibility */
 .desktop-only { display: table; }
 .mobile-only { display: none; }
 
