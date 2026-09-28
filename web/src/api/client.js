@@ -49,24 +49,26 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload)
     }),
+  updateTransaction: (id, payload) =>
+    request(`/transactions/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload)
+    }),
   deleteTransaction: (id) =>
     request(`/transactions/${id}`, { method: 'DELETE' }),
 
   // ===== Bills (Tanggungan) =====
   getBills: () => request('/bills'),
-
   createBill: (payload) =>
     request('/bills', {
       method: 'POST',
       body: JSON.stringify(payload)
     }),
-
   updateBill: (id, payload) =>
     request(`/bills/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(payload)
     }),
-
   deleteBill: (id) =>
     request(`/bills/${id}`, { method: 'DELETE' })
 }

@@ -118,6 +118,28 @@ export function useFinance() {
     }
   }
 
+  async function updateTransaction(id, payload) {
+    state.saving = true
+    state.error = ''
+    try {
+      const updated = await api.updateTransaction(id, {
+        type: payload.type,
+        category: payload.category,
+        note: payload.note,
+        amount: Number(payload.amount),
+        date: payload.date
+      })
+      const idx = state.transactions.findIndex((t) => t.id === id)
+      if (idx !== -1) state.transactions[idx] = updated
+      return true
+    } catch (e) {
+      state.error = e.message || 'Gagal mengubah transaksi'
+      return false
+    } finally {
+      state.saving = false
+    }
+  }
+
   async function deleteTransaction(id) {
     state.error = ''
     const prev = [...state.transactions]
@@ -130,7 +152,7 @@ export function useFinance() {
     }
   }
 
-  // ===== Tanggungan (Bills) — sudah pakai API =====
+  // ===== Tanggungan (Bills) =====
   async function addBill(payload) {
     state.saving = true
     state.error = ''
@@ -145,6 +167,27 @@ export function useFinance() {
       return true
     } catch (e) {
       state.error = e.message || 'Gagal menyimpan tanggungan'
+      return false
+    } finally {
+      state.saving = false
+    }
+  }
+
+  async function updateBill(id, payload) {
+    state.saving = true
+    state.error = ''
+    try {
+      const updated = await api.updateBill(id, {
+        name: payload.name,
+        amount: Number(payload.amount),
+        dueDay: Number(payload.dueDay),
+        note: payload.note || ''
+      })
+      const idx = state.bills.findIndex((b) => b.id === id)
+      if (idx !== -1) state.bills[idx] = updated
+      return true
+    } catch (e) {
+      state.error = e.message || 'Gagal mengubah tanggungan'
       return false
     } finally {
       state.saving = false
@@ -197,8 +240,10 @@ export function useFinance() {
 
     loadAll,
     addTransaction,
+    updateTransaction,
     deleteTransaction,
     addBill,
+    updateBill,
     toggleBillPaid,
     deleteBill
   }

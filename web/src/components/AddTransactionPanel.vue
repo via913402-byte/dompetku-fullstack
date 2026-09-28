@@ -4,11 +4,13 @@ import { reactive, computed, watch, onUnmounted } from 'vue'
 const props = defineProps({
   open: { type: Boolean, default: false },
   categories: { type: Array, required: true },
-  saving: { type: Boolean, default: false }
+  saving: { type: Boolean, default: false },
+  editData: { type: Object, default: null }
 })
 
 const emit = defineEmits(['close', 'submit'])
 
+const isEdit = computed(() => !!props.editData)
 const today = new Date().toISOString().slice(0, 10)
 
 const form = reactive({
@@ -27,20 +29,31 @@ const availableCategories = computed(() =>
 watch(
   () => form.type,
   () => {
-    form.category = availableCategories.value[0]?.key || ''
-  },
-  { immediate: true }
+    if (!isEdit.value) {
+      form.category = availableCategories.value[0]?.key || ''
+    }
+  }
 )
 
 watch(
   () => props.open,
   (isOpen) => {
     if (isOpen) {
-      form.type = 'expense'
-      form.note = ''
-      form.amount = ''
-      form.amountDisplay = ''
-      form.date = today
+      if (props.editData) {
+        form.type = props.editData.type || 'expense'
+        form.category = props.editData.category || ''
+        form.note = props.editData.note || ''
+        form.amount = String(props.editData.amount ?? '')
+        form.amountDisplay = formatRupiah(props.editData.amount)
+        form.date = props.editData.date || today
+      } else {
+        form.type = 'expense'
+        form.note = ''
+        form.amount = ''
+        form.amountDisplay = ''
+        form.date = today
+        form.category = availableCategories.value[0]?.key || ''
+      }
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = ''
@@ -54,16 +67,12 @@ onUnmounted(() => {
 
 function formatRupiah(value) {
   if (value === '' || value === null || value === undefined) return ''
-
   let str = String(value).replace(',', '.')
   str = str.replace(/[^\d.]/g, '')
-
   const parts = str.split('.')
   let integer = parts[0] || ''
   let decimal = parts[1] !== undefined ? parts[1].slice(0, 2) : undefined
-
   integer = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
-
   if (decimal !== undefined) {
     return decimal.length > 0 ? `${integer},${decimal}` : integer
   }
@@ -91,6 +100,7 @@ function submit() {
   if (!amountNum || amountNum <= 0 || !form.category) return
 
   emit('submit', {
+    id: props.editData?.id,
     type: form.type,
     category: form.category,
     note: form.note,
@@ -104,11 +114,10 @@ function submit() {
   <Transition name="slide">
     <div v-if="open" class="scrim" @click.self="$emit('close')">
       <div class="panel">
-        <!-- Header -->
         <div class="panel-head">
           <div>
-            <h3>Transaksi baru</h3>
-            <p class="subtitle">Catat pemasukan atau pengeluaran</p>
+            <h3>{{ isEdit ? 'Edit transaksi' : 'Transaksi baru' }}</h3>
+            <p class="subtitle">{{ isEdit ? 'Ubah data transaksi' : 'Catat pemasukan atau pengeluaran' }}</p>
           </div>
           <button class="close" @click="$emit('close')" aria-label="Tutup">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -117,24 +126,16 @@ function submit() {
           </button>
         </div>
 
-        <!-- Type Toggle -->
         <div class="type-toggle">
-          <button
-            :class="{ active: form.type === 'expense' }"
-            @click="form.type = 'expense'"
-          >
+          <button :class="{ active: form.type === 'expense' }" @click="form.type = 'expense'">
             Pengeluaran
           </button>
-          <button
-            :class="{ active: form.type === 'income' }"
-            @click="form.type = 'income'"
-          >
+          <button :class="{ active: form.type === 'income' }" @click="form.type = 'income'">
             Pemasukan
           </button>
         </div>
 
         <form @submit.prevent="submit">
-          <!-- Jumlah -->
           <label class="field">
             <span class="label">Jumlah</span>
             <div class="amount-input">
@@ -150,7 +151,6 @@ function submit() {
             </div>
           </label>
 
-          <!-- Kategori -->
           <label class="field">
             <span class="label">Kategori</span>
             <div class="select-wrapper">
@@ -165,26 +165,18 @@ function submit() {
             </div>
           </label>
 
-          <!-- Keterangan -->
           <label class="field">
             <span class="label">Keterangan <span class="optional">(opsional)</span></span>
-            <input
-              v-model="form.note"
-              type="text"
-              placeholder="Contoh: Makan siang, Gaji, dll"
-            />
+            <input v-model="form.note" type="text" placeholder="Contoh: Makan siang, Gaji, dll" />
           </label>
 
-          <!-- Tanggal -->
           <label class="field">
             <span class="label">Tanggal</span>
             <input v-model="form.date" type="date" required />
           </label>
 
-          <!-- Tombol -->
           <button type="submit" class="submit" :disabled="saving">
-            <span v-if="saving">Menyimpan…</span>
-            <span v-else>Simpan transaksi</span>
+            {{ saving ? 'Menyimpan…' : (isEdit ? 'Simpan perubahan' : 'Simpan transaksi') }}
           </button>
         </form>
       </div>
@@ -223,7 +215,6 @@ function submit() {
   }
 }
 
-/* Header */
 .panel-head {
   display: flex;
   justify-content: space-between;
@@ -266,7 +257,6 @@ function submit() {
   color: #111827;
 }
 
-/* Type Toggle */
 .type-toggle {
   display: flex;
   background: #f3f4f6;
@@ -295,7 +285,6 @@ function submit() {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
-/* Form */
 form {
   display: flex;
   flex-direction: column;
@@ -320,7 +309,6 @@ form {
   color: #9ca3af;
 }
 
-/* Inputs */
 .field input,
 .field select {
   font-family: inherit;
@@ -346,7 +334,6 @@ form {
   color: #9ca3af;
 }
 
-/* Amount Input */
 .amount-input {
   display: flex;
   align-items: center;
@@ -386,7 +373,6 @@ form {
   box-shadow: none !important;
 }
 
-/* Select */
 .select-wrapper {
   position: relative;
 }
@@ -406,7 +392,6 @@ form {
   pointer-events: none;
 }
 
-/* Submit Button */
 .submit {
   margin-top: 10px;
   background: #2563eb;
@@ -437,7 +422,6 @@ form {
   cursor: not-allowed;
 }
 
-/* Animasi */
 .slide-enter-active,
 .slide-leave-active {
   transition: opacity 0.22s ease;
@@ -458,7 +442,6 @@ form {
   transform: translateX(100%);
 }
 
-/* Safe area */
 @supports (padding: max(0px)) {
   .panel {
     padding-left: max(20px, env(safe-area-inset-left));
