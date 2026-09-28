@@ -57,6 +57,35 @@ router.post('/', async (req, res) => {
   res.status(201).json(rows[0])
 })
 
+// PATCH /api/transactions/:id  ← BARU (untuk Edit)
+router.patch('/:id', async (req, res) => {
+  const deviceId = getDeviceId(req)
+  const errors = await validatePayload(req.body)
+  if (errors.length) return res.status(400).json({ errors })
+
+  const result = await pool.query(
+    `UPDATE transactions 
+     SET type = $1, category = $2, note = $3, amount = $4, date = $5
+     WHERE id = $6 AND device_id = $7
+     RETURNING *`,
+    [
+      req.body.type,
+      req.body.category,
+      (req.body.note || '').trim(),
+      Math.round(Number(req.body.amount)),
+      req.body.date,
+      req.params.id,
+      deviceId
+    ]
+  )
+
+  if (result.rowCount === 0) {
+    return res.status(404).json({ errors: ['Transaksi tidak ditemukan'] })
+  }
+
+  res.json(result.rows[0])
+})
+
 // DELETE /api/transactions/:id
 router.delete('/:id', async (req, res) => {
   const deviceId = getDeviceId(req)
