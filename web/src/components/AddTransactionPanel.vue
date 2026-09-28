@@ -39,7 +39,7 @@ watch(
       form.note = ''
       form.amount = ''
       form.date = today
-      document.body.style.overflow = 'hidden' // cegah scroll body
+      document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = ''
     }
@@ -83,15 +83,18 @@ function submit() {
         <form @submit.prevent="submit">
           <label class="field">
             <span>Jumlah (Rp)</span>
-            <input
-              v-model="form.amount"
-              type="number"
-              min="0"
-              step="1000"
-              placeholder="0"
-              required
-              inputmode="numeric"
-            />
+            <div class="amount-input">
+              <span class="currency">Rp</span>
+              <input
+                v-model="form.amount"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0"
+                required
+                inputmode="decimal"
+              />
+            </div>
           </label>
 
           <label class="field">
@@ -134,7 +137,6 @@ function submit() {
   display: flex;
   justify-content: flex-end;
   z-index: 40;
-  /* Agar aman di iOS */
   -webkit-overflow-scrolling: touch;
 }
 
@@ -150,7 +152,6 @@ function submit() {
   overflow-y: auto;
 }
 
-/* Desktop */
 @media (min-width: 480px) {
   .panel {
     width: 360px;
@@ -227,7 +228,7 @@ form {
 .field input,
 .field select {
   font-family: var(--font-display);
-  font-size: 16px; /* penting: cegah zoom di iOS */
+  font-size: 16px;
   color: var(--ink);
   padding: 13px 14px;
   border: 1px solid var(--line);
@@ -240,6 +241,47 @@ form {
 .field input:focus,
 .field select:focus {
   border-color: var(--blue);
+  outline: none;
+}
+
+/* ===== Amount input dengan prefix Rp ===== */
+.amount-input {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  overflow: hidden;
+}
+
+.amount-input:focus-within {
+  border-color: var(--blue);
+}
+
+.amount-input .currency {
+  padding: 0 12px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  background: var(--line-soft);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  border-right: 1px solid var(--line);
+}
+
+.amount-input input {
+  border: none !important;
+  flex: 1;
+  padding: 13px 14px;
+  font-size: 16px;
+  background: transparent;
+  outline: none;
+  min-width: 0;
+}
+
+.amount-input input:focus {
+  border: none !important;
   outline: none;
 }
 
@@ -286,7 +328,6 @@ form {
   transform: translateX(100%);
 }
 
-/* Extra safe area untuk iPhone dengan notch */
 @supports (padding: max(0px)) {
   .panel {
     padding-left: max(16px, env(safe-area-inset-left));

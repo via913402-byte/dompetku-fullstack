@@ -1,5 +1,6 @@
 <script setup>
-import { watch, onUnmounted } from 'vue'
+import { watch, onMounted, onUnmounted } from 'vue'
+import NavIcon from './NavIcon.vue'
 
 const props = defineProps({
   active: { type: String, default: 'ringkasan' },
@@ -12,25 +13,52 @@ const items = [
   { key: 'ringkasan', label: 'Ringkasan', glyph: '01' },
   { key: 'transaksi', label: 'Transaksi', glyph: '02' },
   { key: 'tanggungan', label: 'Tanggungan', glyph: '03' },
-  { key: 'laporan', label: 'Laporan', glyph: '04' }   // ← ganti dari anggaran
+  { key: 'laporan', label: 'Laporan', glyph: '04' }
 ]
+
+// [DIUBAH] Satu batas mobile untuk semua. Harus sama dengan
+// @media (max-width: 960px) di bawah dan di App.vue.
+const MOBILE_MAX = 960
+
+function isMobile() {
+  return window.innerWidth <= MOBILE_MAX
+}
 
 watch(
   () => props.open,
   (isOpen) => {
-    if (window.innerWidth <= 860) {
+    if (isMobile()) {
       document.body.style.overflow = isOpen ? 'hidden' : ''
     }
   }
 )
 
+// [BARU] Esc menutup drawer; melebarkan layar menutup drawer dan melepas kunci scroll
+function handleKeydown(e) {
+  if (e.key === 'Escape' && props.open) emit('close')
+}
+
+function handleResize() {
+  if (!isMobile()) {
+    document.body.style.overflow = ''
+    if (props.open) emit('close')
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown)
+  window.addEventListener('resize', handleResize)
+})
+
 onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('resize', handleResize)
   document.body.style.overflow = ''
 })
 
 function handleNavigate(key) {
   emit('navigate', key)
-  if (window.innerWidth <= 860) {
+  if (isMobile()) {
     emit('close')
   }
 }
@@ -53,7 +81,7 @@ function handleNavigate(key) {
         <span>Manajemen Keuangan</span>
       </div>
       <button class="close-btn" @click="$emit('close')" aria-label="Tutup menu">
-        ✕
+        <NavIcon name="close" :size="18" />
       </button>
     </div>
 
@@ -91,24 +119,26 @@ function handleNavigate(key) {
   width: 240px;
   min-height: 100vh;
   height: 100vh;
-  padding: 28px 20px;
+  height: 100dvh;
+  padding: 0 20px 28px;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   z-index: 60;
-  position: sticky;        /* ← sticky di desktop */
+  position: sticky;
   top: 0;
   align-self: flex-start;
   overflow-y: auto;
 }
 
+/* ===== Brand: tinggi totalnya (20 padding-top + 36 baris + 16 padding-bottom) = 72px, disamakan dengan navbar ===== */
 .brand {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding-bottom: 32px;
+  padding: 20px 0 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   position: relative;
   flex-shrink: 0;
 }
@@ -148,10 +178,10 @@ function handleNavigate(key) {
   background: transparent;
   border: none;
   color: rgba(245, 246, 248, 0.7);
-  font-size: 18px;
   padding: 6px;
   cursor: pointer;
-  line-height: 1;
+  align-items: center;
+  justify-content: center;
 }
 
 .nav {
@@ -219,8 +249,8 @@ function handleNavigate(key) {
   opacity: 0;
 }
 
-/* ===== Mobile Drawer ===== */
-@media (max-width: 860px) {
+/* ===== Mobile Drawer (dulu 860px, sekarang 960px agar sama dengan App.vue) ===== */
+@media (max-width: 960px) {
   .scrim {
     display: block;
   }
@@ -245,13 +275,13 @@ function handleNavigate(key) {
     transform: translateX(0);
   }
 
-  .close-btn {
-    display: block;
+  .brand {
+    padding: 0 0 20px;
+    margin-bottom: 20px;
   }
 
-  .brand {
-    padding-bottom: 24px;
-    margin-bottom: 20px;
+  .close-btn {
+    display: flex;
   }
 
   .nav-item {

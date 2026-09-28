@@ -1,6 +1,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import Sidebar from './components/Sidebar.vue'
+import NavIcon from './components/NavIcon.vue'
+import NotificationBell from './components/NotificationBell.vue'
 import AddTransactionPanel from './components/AddTransactionPanel.vue'
 import AddBillPanel from './components/AddBillPanel.vue'
 import RingkasanView from './views/RingkasanView.vue'
@@ -51,23 +53,20 @@ const pageTitle = computed(() => {
   return map[view.value] || 'Dompetku'
 })
 
+// [DIUBAH] Subjudul sekarang berbeda untuk tiap halaman (dulu Transaksi memakai teks Ringkasan)
 const pageSub = computed(() => {
-  if (view.value === 'tanggungan') {
-    return 'Kelola angsuran, cicilan & tagihan rutin bulananmu.'
+  const map = {
+    ringkasan: 'Pantau arus kas pribadimu dalam satu tampilan.',
+    transaksi: 'Riwayat semua pemasukan dan pengeluaranmu.',
+    tanggungan: 'Kelola angsuran, cicilan & tagihan rutin bulananmu.',
+    laporan: 'Lihat ringkasan pemasukan & pengeluaran per bulan.'
   }
-  if (view.value === 'laporan') {
-    return 'Lihat ringkasan pemasukan & pengeluaran per bulan.'
-  }
-  return 'Pantau arus kas pribadimu dalam satu tampilan.'
+  return map[view.value] || 'Pantau arus kas pribadimu dalam satu tampilan.'
 })
 </script>
 
 <template>
-  <div class="layout">
-    <button class="hamburger" @click="sidebarOpen = true" aria-label="Buka menu">
-      <span></span><span></span><span></span>
-    </button>
-
+  <div class="app-shell">
     <Sidebar
       :active="view"
       :open="sidebarOpen"
@@ -75,45 +74,55 @@ const pageSub = computed(() => {
       @close="sidebarOpen = false"
     />
 
-    <main class="content">
-      <header class="topbar">
-        <div class="topbar-text">
+    <div class="main-col">
+      <header class="navbar">
+        <button class="navbar-hamburger" @click="sidebarOpen = true" aria-label="Buka menu">
+          <NavIcon name="menu" :size="16" />
+        </button>
+
+        <div class="navbar-text">
           <h1>{{ pageTitle }}</h1>
-          <p class="sub">{{ pageSub }}</p>
+          <p class="navbar-sub">{{ pageSub }}</p>
         </div>
 
-        <button
-          v-if="view === 'tanggungan'"
-          class="add-btn"
-          @click="billPanelOpen = true"
-          :disabled="loading"
-        >
-          + Tanggungan baru
-        </button>
-        <button
-          v-else-if="view !== 'laporan'"
-          class="add-btn"
-          @click="panelOpen = true"
-          :disabled="loading"
-        >
-          + Transaksi baru
-        </button>
+        <div class="navbar-actions">
+          <NotificationBell />
+
+          <button
+            v-if="view === 'tanggungan'"
+            class="add-btn"
+            @click="billPanelOpen = true"
+            :disabled="loading"
+          >
+            + Tanggungan baru
+          </button>
+          <button
+            v-else-if="view !== 'laporan'"
+            class="add-btn"
+            @click="panelOpen = true"
+            :disabled="loading"
+          >
+            + Transaksi baru
+          </button>
+        </div>
       </header>
 
-      <div v-if="error" class="banner error">
-        {{ error }}
-        <button class="retry" @click="loadAll">Coba lagi</button>
-      </div>
+      <main class="content">
+        <div v-if="error" class="banner error">
+          {{ error }}
+          <button class="retry" @click="loadAll">Coba lagi</button>
+        </div>
 
-      <div v-if="loading" class="loading-state">Memuat data dari server…</div>
+        <div v-if="loading" class="loading-state">Memuat data dari server…</div>
 
-      <template v-else>
-        <RingkasanView v-if="view === 'ringkasan'" />
-        <TransaksiView v-else-if="view === 'transaksi'" />
-        <TanggunganView v-else-if="view === 'tanggungan'" />
-        <LaporanView v-else-if="view === 'laporan'" />
-      </template>
-    </main>
+        <template v-else>
+          <RingkasanView v-if="view === 'ringkasan'" />
+          <TransaksiView v-else-if="view === 'transaksi'" />
+          <TanggunganView v-else-if="view === 'tanggungan'" />
+          <LaporanView v-else-if="view === 'laporan'" />
+        </template>
+      </main>
+    </div>
 
     <AddTransactionPanel
       :open="panelOpen"
@@ -133,75 +142,85 @@ const pageSub = computed(() => {
 </template>
 
 <style scoped>
-.layout {
+.app-shell {
   display: flex;
   min-height: 100vh;
-  position: relative;
 }
 
-.hamburger {
-  display: none;
-  position: fixed;
-  top: 14px;
-  left: 14px;
-  z-index: 45;
-  width: 42px;
-  height: 42px;
-  background: var(--ink);
-  border: none;
-  border-radius: 10px;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 5px;
-  cursor: pointer;
-  padding: 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-.hamburger span {
-  display: block;
-  width: 18px;
-  height: 2px;
-  background: #fff;
-  border-radius: 1px;
-}
-
-.content {
+.main-col {
   flex: 1;
-  padding: 32px 40px 60px;
-  max-width: 1080px;
-  width: 100%;
-}
-
-.topbar {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 28px;
-  gap: 16px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  min-width: 0;
 }
 
-.topbar h1 {
-  font-size: 22px;
+/* ===== Navbar: tingginya disamakan dengan tinggi blok brand di sidebar (72px) ===== */
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  height: 72px;
+  background: #fff;
+  border-bottom: 1px solid rgba(11, 13, 18, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 24px;
+  flex-shrink: 0;
+}
+
+.navbar-hamburger {
+  display: none;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.navbar-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.navbar-text h1 {
+  font-size: 18px;
   margin: 0;
   line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.sub {
-  margin: 6px 0 0;
+.navbar-sub {
+  margin: 2px 0 0;
+  font-size: 12.5px;
   color: var(--ink-soft);
-  font-size: 13.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .add-btn {
   background: var(--ink);
   color: #fff;
   border: none;
-  padding: 11px 18px;
+  padding: 9px 16px;
   border-radius: var(--radius-sm);
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
@@ -215,6 +234,15 @@ const pageSub = computed(() => {
 .add-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* [DIUBAH] konten dipusatkan di layar lebar (dulu menempel ke kiri) */
+.content {
+  flex: 1;
+  padding: 32px 40px 60px;
+  max-width: 1080px;
+  width: 100%;
+  margin: 0 auto;
 }
 
 .loading-state {
@@ -252,39 +280,45 @@ const pageSub = computed(() => {
   white-space: nowrap;
 }
 
+/* ===== Mobile (960px, sama dengan Sidebar.vue) ===== */
 @media (max-width: 960px) {
-  .layout {
+  .app-shell {
     flex-direction: column;
   }
 
-  .hamburger {
+  /* [DIUBAH] navbar satu baris: menu, judul, lonceng. Tinggi tetap, tidak lagi 2 baris. */
+  .navbar {
+    height: 60px;
+    padding: 0 14px;
+    gap: 10px;
+  }
+
+  .navbar-hamburger {
     display: flex;
   }
 
-  .content {
-    padding: 72px 16px 48px;
+  .navbar-text h1 {
+    font-size: 16px;
   }
 
-  .topbar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 14px;
-    margin-bottom: 22px;
+  .navbar-sub {
+    font-size: 11.5px;
   }
 
-  .topbar h1 {
-    font-size: 19px;
-  }
-
-  .sub {
-    font-size: 13px;
-  }
-
+  /* [DIUBAH] tombol tambah menjadi tombol mengambang di kanan bawah agar tidak memakan tinggi layar */
   .add-btn {
-    width: 100%;
-    padding: 13px 16px;
-    font-size: 14px;
-    text-align: center;
+    position: fixed;
+    right: 16px;
+    bottom: max(16px, env(safe-area-inset-bottom));
+    z-index: 45;
+    padding: 13px 20px;
+    border-radius: 999px;
+    font-size: 13.5px;
+    box-shadow: 0 6px 18px rgba(11, 13, 18, 0.28);
+  }
+
+  .content {
+    padding: 20px 16px 96px;
   }
 
   .banner {
@@ -300,11 +334,7 @@ const pageSub = computed(() => {
 
 @media (max-width: 380px) {
   .content {
-    padding: 68px 12px 40px;
-  }
-
-  .topbar h1 {
-    font-size: 17px;
+    padding: 18px 12px 96px;
   }
 }
 </style>
