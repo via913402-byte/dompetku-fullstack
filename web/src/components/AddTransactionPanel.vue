@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, computed, watch, onMounted, onUnmounted } from 'vue'
+import { reactive, computed, watch, onUnmounted } from 'vue'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -16,6 +16,7 @@ const form = reactive({
   category: '',
   note: '',
   amount: '',
+  amountDisplay: '',
   date: today
 })
 
@@ -38,6 +39,7 @@ watch(
       form.type = 'expense'
       form.note = ''
       form.amount = ''
+      form.amountDisplay = ''
       form.date = today
       document.body.style.overflow = 'hidden'
     } else {
@@ -50,9 +52,51 @@ onUnmounted(() => {
   document.body.style.overflow = ''
 })
 
+function formatRupiah(value) {
+  if (value === '' || value === null || value === undefined) return ''
+
+  let str = String(value).replace(',', '.')
+  str = str.replace(/[^\d.]/g, '')
+
+  const parts = str.split('.')
+  let integer = parts[0] || ''
+  let decimal = parts[1] !== undefined ? parts[1].slice(0, 2) : undefined
+
+  integer = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+
+  if (decimal !== undefined) {
+    return decimal.length > 0 ? `${integer},${decimal}` : integer
+  }
+  return integer
+}
+
+function parseRupiah(displayValue) {
+  if (!displayValue) return ''
+  return displayValue
+    .replace(/\./g, '')
+    .replace(',', '.')
+    .replace(/[^\d.]/g, '')
+}
+
+function onAmountInput(e) {
+  const input = e.target.value
+  const cleaned = input.replace(/[^\d.,]/g, '')
+  const parsed = parseRupiah(cleaned)
+  form.amount = parsed
+  form.amountDisplay = formatRupiah(parsed)
+}
+
 function submit() {
-  if (!form.amount || Number(form.amount) <= 0 || !form.category) return
-  emit('submit', { ...form })
+  const amountNum = Number(form.amount)
+  if (!amountNum || amountNum <= 0 || !form.category) return
+
+  emit('submit', {
+    type: form.type,
+    category: form.category,
+    note: form.note,
+    amount: amountNum,
+    date: form.date
+  })
 }
 </script>
 
@@ -60,11 +104,20 @@ function submit() {
   <Transition name="slide">
     <div v-if="open" class="scrim" @click.self="$emit('close')">
       <div class="panel">
+        <!-- Header -->
         <div class="panel-head">
-          <h3>Transaksi baru</h3>
-          <button class="close" @click="$emit('close')" aria-label="Tutup">✕</button>
+          <div>
+            <h3>Transaksi baru</h3>
+            <p class="subtitle">Catat pemasukan atau pengeluaran</p>
+          </div>
+          <button class="close" @click="$emit('close')" aria-label="Tutup">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
         </div>
 
+        <!-- Type Toggle -->
         <div class="type-toggle">
           <button
             :class="{ active: form.type === 'expense' }"
@@ -81,47 +134,57 @@ function submit() {
         </div>
 
         <form @submit.prevent="submit">
+          <!-- Jumlah -->
           <label class="field">
-            <span>Jumlah (Rp)</span>
+            <span class="label">Jumlah</span>
             <div class="amount-input">
               <span class="currency">Rp</span>
               <input
-                v-model="form.amount"
-                type="number"
-                min="0"
-                step="0.01"
+                :value="form.amountDisplay"
+                type="text"
+                inputmode="decimal"
                 placeholder="0"
                 required
-                inputmode="decimal"
+                @input="onAmountInput"
               />
             </div>
           </label>
 
+          <!-- Kategori -->
           <label class="field">
-            <span>Kategori</span>
-            <select v-model="form.category" required>
-              <option v-for="c in availableCategories" :key="c.key" :value="c.key">
-                {{ c.label }}
-              </option>
-            </select>
+            <span class="label">Kategori</span>
+            <div class="select-wrapper">
+              <select v-model="form.category" required>
+                <option v-for="c in availableCategories" :key="c.key" :value="c.key">
+                  {{ c.label }}
+                </option>
+              </select>
+              <svg class="select-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 9l6 6 6-6"/>
+              </svg>
+            </div>
           </label>
 
+          <!-- Keterangan -->
           <label class="field">
-            <span>Keterangan</span>
+            <span class="label">Keterangan <span class="optional">(opsional)</span></span>
             <input
               v-model="form.note"
               type="text"
-              placeholder="Contoh: Makan siang"
+              placeholder="Contoh: Makan siang, Gaji, dll"
             />
           </label>
 
+          <!-- Tanggal -->
           <label class="field">
-            <span>Tanggal</span>
+            <span class="label">Tanggal</span>
             <input v-model="form.date" type="date" required />
           </label>
 
+          <!-- Tombol -->
           <button type="submit" class="submit" :disabled="saving">
-            {{ saving ? 'Menyimpan…' : 'Simpan transaksi' }}
+            <span v-if="saving">Menyimpan…</span>
+            <span v-else>Simpan transaksi</span>
           </button>
         </form>
       </div>
@@ -133,7 +196,8 @@ function submit() {
 .scrim {
   position: fixed;
   inset: 0;
-  background: rgba(11, 13, 18, 0.4);
+  background: rgba(15, 17, 23, 0.55);
+  backdrop-filter: blur(4px);
   display: flex;
   justify-content: flex-end;
   z-index: 40;
@@ -144,51 +208,71 @@ function submit() {
   width: 100%;
   max-width: 400px;
   height: 100%;
-  background: var(--panel);
-  padding: 20px 16px;
+  background: #ffffff;
+  padding: 24px 20px 28px;
   display: flex;
   flex-direction: column;
-  box-shadow: -8px 0 24px rgba(11, 13, 18, 0.12);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.12);
   overflow-y: auto;
 }
 
 @media (min-width: 480px) {
   .panel {
-    width: 360px;
-    padding: 24px;
+    width: 380px;
+    padding: 28px 24px 32px;
   }
 }
 
+/* Header */
 .panel-head {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 18px;
+  align-items: flex-start;
+  margin-bottom: 22px;
   flex-shrink: 0;
 }
 
 .panel-head h3 {
-  font-size: 17px;
+  font-size: 18px;
+  font-weight: 650;
+  margin: 0 0 3px;
+  color: #111827;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
   margin: 0;
+  font-size: 13px;
+  color: #6b7280;
 }
 
 .close {
-  background: transparent;
+  background: #f3f4f6;
   border: none;
-  font-size: 18px;
-  color: var(--ink-soft);
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: #6b7280;
   cursor: pointer;
-  padding: 8px;
-  margin: -8px;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 
+.close:hover {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+/* Type Toggle */
 .type-toggle {
   display: flex;
-  background: var(--line-soft);
-  border-radius: var(--radius-sm);
+  background: #f3f4f6;
+  border-radius: 12px;
   padding: 4px;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
   flex-shrink: 0;
 }
 
@@ -197,19 +281,21 @@ function submit() {
   border: none;
   background: transparent;
   padding: 11px 0;
-  border-radius: 6px;
-  font-size: 14px;
+  border-radius: 9px;
+  font-size: 13.5px;
   cursor: pointer;
-  color: var(--ink-soft);
-  font-weight: 500;
-  transition: all 0.15s ease;
+  color: #6b7280;
+  font-weight: 550;
+  transition: all 0.18s ease;
 }
 
 .type-toggle button.active {
-  background: var(--ink);
-  color: #fff;
+  background: #111827;
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
+/* Form */
 form {
   display: flex;
   flex-direction: column;
@@ -221,89 +307,133 @@ form {
   display: flex;
   flex-direction: column;
   gap: 7px;
-  font-size: 13px;
-  color: var(--ink-soft);
 }
 
+.label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.optional {
+  font-weight: 400;
+  color: #9ca3af;
+}
+
+/* Inputs */
 .field input,
 .field select {
-  font-family: var(--font-display);
-  font-size: 16px;
-  color: var(--ink);
+  font-family: inherit;
+  font-size: 15px;
+  color: #111827;
   padding: 13px 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--paper);
+  border: 1.5px solid #e5e7eb;
+  border-radius: 11px;
+  background: #ffffff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
   -webkit-appearance: none;
   appearance: none;
 }
 
 .field input:focus,
 .field select:focus {
-  border-color: var(--blue);
+  border-color: #3b82f6;
   outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
 
-/* ===== Amount input dengan prefix Rp ===== */
+.field input::placeholder {
+  color: #9ca3af;
+}
+
+/* Amount Input */
 .amount-input {
   display: flex;
   align-items: center;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--paper);
+  border: 1.5px solid #e5e7eb;
+  border-radius: 11px;
+  background: #ffffff;
   overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .amount-input:focus-within {
-  border-color: var(--blue);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
 
 .amount-input .currency {
-  padding: 0 12px;
+  padding: 0 14px;
   font-size: 15px;
-  font-weight: 500;
-  color: var(--ink-soft);
-  background: var(--line-soft);
+  font-weight: 600;
+  color: #6b7280;
+  background: #f9fafb;
   height: 100%;
   display: flex;
   align-items: center;
-  border-right: 1px solid var(--line);
+  border-right: 1.5px solid #e5e7eb;
 }
 
 .amount-input input {
   border: none !important;
   flex: 1;
   padding: 13px 14px;
-  font-size: 16px;
+  font-size: 18px;
+  font-weight: 600;
   background: transparent;
   outline: none;
   min-width: 0;
+  box-shadow: none !important;
 }
 
-.amount-input input:focus {
-  border: none !important;
-  outline: none;
+/* Select */
+.select-wrapper {
+  position: relative;
 }
 
+.select-wrapper select {
+  width: 100%;
+  padding-right: 40px;
+  cursor: pointer;
+}
+
+.select-arrow {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+/* Submit Button */
 .submit {
-  margin-top: auto;
-  background: var(--blue);
-  color: #fff;
+  margin-top: 10px;
+  background: #2563eb;
+  color: #ffffff;
   border: none;
   padding: 15px;
-  border-radius: var(--radius-sm);
+  border-radius: 12px;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   width: 100%;
+  transition: all 0.18s ease;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
 }
 
-.submit:hover {
-  background: var(--blue-deep);
+.submit:hover:not(:disabled) {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+
+.submit:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .submit:disabled {
-  opacity: 0.6;
+  opacity: 0.65;
   cursor: not-allowed;
 }
 
@@ -315,7 +445,7 @@ form {
 
 .slide-enter-active .panel,
 .slide-leave-active .panel {
-  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .slide-enter-from,
@@ -328,11 +458,12 @@ form {
   transform: translateX(100%);
 }
 
+/* Safe area */
 @supports (padding: max(0px)) {
   .panel {
-    padding-left: max(16px, env(safe-area-inset-left));
-    padding-right: max(16px, env(safe-area-inset-right));
-    padding-bottom: max(20px, env(safe-area-inset-bottom));
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
+    padding-bottom: max(28px, env(safe-area-inset-bottom));
   }
 }
 </style>

@@ -10,7 +10,7 @@ const props = defineProps({
 const emit = defineEmits(['navigate', 'close'])
 
 const items = [
-  { key: 'ringkasan', label: 'Ringkasan', glyph: '01' },
+  { key: 'ringkasan', label: 'Dashboard', glyph: '01' },
   { key: 'transaksi', label: 'Transaksi', glyph: '02' },
   { key: 'tanggungan', label: 'Tanggungan', glyph: '03' },
   { key: 'laporan', label: 'Laporan', glyph: '04' }
