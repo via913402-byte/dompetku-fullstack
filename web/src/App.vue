@@ -18,7 +18,9 @@ const {
   saving,
   loadAll,
   addTransaction,
-  addBill
+  updateTransaction,
+  addBill,
+  updateBill
 } = useFinance()
 
 const view = ref('ringkasan')
@@ -26,16 +28,58 @@ const panelOpen = ref(false)
 const billPanelOpen = ref(false)
 const sidebarOpen = ref(false)
 
+// Data yang sedang di-edit
+const editingTransaction = ref(null)
+const editingBill = ref(null)
+
 onMounted(loadAll)
 
+// ===== Transaksi =====
+function openAddTransaction() {
+  editingTransaction.value = null
+  panelOpen.value = true
+}
+
+function openEditTransaction(transaction) {
+  editingTransaction.value = transaction
+  panelOpen.value = true
+}
+
 async function handleSubmit(payload) {
-  const ok = await addTransaction(payload)
-  if (ok) panelOpen.value = false
+  let ok
+  if (payload.id) {
+    ok = await updateTransaction(payload.id, payload)
+  } else {
+    ok = await addTransaction(payload)
+  }
+  if (ok) {
+    panelOpen.value = false
+    editingTransaction.value = null
+  }
+}
+
+// ===== Tanggungan =====
+function openAddBill() {
+  editingBill.value = null
+  billPanelOpen.value = true
+}
+
+function openEditBill(bill) {
+  editingBill.value = bill
+  billPanelOpen.value = true
 }
 
 async function handleBillSubmit(payload) {
-  const ok = await addBill(payload)
-  if (ok) billPanelOpen.value = false
+  let ok
+  if (payload.id) {
+    ok = await updateBill(payload.id, payload)
+  } else {
+    ok = await addBill(payload)
+  }
+  if (ok) {
+    billPanelOpen.value = false
+    editingBill.value = null
+  }
 }
 
 function handleNavigate(key) {
@@ -53,7 +97,6 @@ const pageTitle = computed(() => {
   return map[view.value] || 'Dompetku'
 })
 
-// [DIUBAH] Subjudul sekarang berbeda untuk tiap halaman (dulu Transaksi memakai teks Ringkasan)
 const pageSub = computed(() => {
   const map = {
     ringkasan: 'Pantau arus kas pribadimu dalam satu tampilan.',
@@ -91,7 +134,7 @@ const pageSub = computed(() => {
           <button
             v-if="view === 'tanggungan'"
             class="add-btn"
-            @click="billPanelOpen = true"
+            @click="openAddBill"
             :disabled="loading"
           >
             + Tanggungan baru
@@ -99,7 +142,7 @@ const pageSub = computed(() => {
           <button
             v-else-if="view !== 'laporan'"
             class="add-btn"
-            @click="panelOpen = true"
+            @click="openAddTransaction"
             :disabled="loading"
           >
             + Transaksi baru
@@ -117,8 +160,14 @@ const pageSub = computed(() => {
 
         <template v-else>
           <RingkasanView v-if="view === 'ringkasan'" />
-          <TransaksiView v-else-if="view === 'transaksi'" />
-          <TanggunganView v-else-if="view === 'tanggungan'" />
+          <TransaksiView
+            v-else-if="view === 'transaksi'"
+            @edit="openEditTransaction"
+          />
+          <TanggunganView
+            v-else-if="view === 'tanggungan'"
+            @edit="openEditBill"
+          />
           <LaporanView v-else-if="view === 'laporan'" />
         </template>
       </main>
@@ -128,14 +177,16 @@ const pageSub = computed(() => {
       :open="panelOpen"
       :categories="categories"
       :saving="saving"
-      @close="panelOpen = false"
+      :edit-data="editingTransaction"
+      @close="panelOpen = false; editingTransaction = null"
       @submit="handleSubmit"
     />
 
     <AddBillPanel
       :open="billPanelOpen"
       :saving="saving"
-      @close="billPanelOpen = false"
+      :edit-data="editingBill"
+      @close="billPanelOpen = false; editingBill = null"
       @submit="handleBillSubmit"
     />
   </div>
@@ -154,7 +205,6 @@ const pageSub = computed(() => {
   min-width: 0;
 }
 
-/* ===== Navbar: tingginya disamakan dengan tinggi blok brand di sidebar (72px) ===== */
 .navbar {
   position: sticky;
   top: 0;
@@ -236,7 +286,6 @@ const pageSub = computed(() => {
   cursor: not-allowed;
 }
 
-/* [DIUBAH] konten dipusatkan di layar lebar (dulu menempel ke kiri) */
 .content {
   flex: 1;
   padding: 32px 40px 60px;
@@ -280,13 +329,11 @@ const pageSub = computed(() => {
   white-space: nowrap;
 }
 
-/* ===== Mobile (960px, sama dengan Sidebar.vue) ===== */
 @media (max-width: 960px) {
   .app-shell {
     flex-direction: column;
   }
 
-  /* [DIUBAH] navbar satu baris: menu, judul, lonceng. Tinggi tetap, tidak lagi 2 baris. */
   .navbar {
     height: 60px;
     padding: 0 14px;
@@ -305,7 +352,6 @@ const pageSub = computed(() => {
     font-size: 11.5px;
   }
 
-  /* [DIUBAH] tombol tambah menjadi tombol mengambang di kanan bawah agar tidak memakan tinggi layar */
   .add-btn {
     position: fixed;
     right: 16px;

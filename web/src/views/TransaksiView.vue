@@ -5,9 +5,10 @@ import SearchInput from '../components/SearchInput.vue'
 import { useFinance } from '../composables/useFinance'
 import { useSearch } from '../composables/useSearch'
 
+const emit = defineEmits(['edit'])
+
 const { transactions, categoryLabel, deleteTransaction } = useFinance()
 
-// [BARU] teks tambahan yang ikut dicari: nama kategori dan jenis transaksi
 function teksTambahan(t) {
   const bagian = []
   const kategori = t.category ?? t.categoryId ?? t.category_id
@@ -25,7 +26,6 @@ const total = computed(() => (unref(transactions) || []).length)
 <template>
   <section class="view">
     <div class="panel-block">
-      <!-- [BARU] pencarian (selalu tampil) -->
       <div class="toolbar">
         <SearchInput
           v-model="query"
@@ -44,6 +44,7 @@ const total = computed(() => (unref(transactions) || []).length)
         :transactions="hasil"
         :category-label="categoryLabel"
         @delete="deleteTransaction"
+        @edit="emit('edit', $event)"
       />
     </div>
   </section>

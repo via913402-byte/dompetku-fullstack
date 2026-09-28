@@ -7,6 +7,8 @@ import { useFinance } from '../composables/useFinance'
 import { useSearch } from '../composables/useSearch'
 import { formatRupiah } from '../utils/format'
 
+const emit = defineEmits(['edit'])
+
 const { bills, toggleBillPaid, deleteBill } = useFinance()
 
 const totalBills = computed(() =>
@@ -21,8 +23,6 @@ const totalUnpaid = computed(() =>
   unpaidBills.value.reduce((sum, b) => sum + Number(b.amount || 0), 0)
 )
 
-// [BARU] pencarian: status ikut dicari, jadi "lunas" atau "belum" bisa diketik.
-// Kartu ringkasan di atas tetap menghitung semua tanggungan, tidak ikut terfilter.
 const { query, hasil, aktif } = useSearch(bills, (b) => (b.isPaid ? 'lunas' : 'belum dibayar'))
 const totalTanggungan = computed(() => (bills.value || []).length)
 </script>
@@ -52,7 +52,6 @@ const totalTanggungan = computed(() => (bills.value || []).length)
       <h2>Daftar Tanggungan</h2>
       <p class="hint">Tandai sebagai lunas setelah dibayar</p>
 
-      <!-- [BARU] pencarian (selalu tampil) -->
       <div class="toolbar">
         <SearchInput
           v-model="query"
@@ -71,6 +70,7 @@ const totalTanggungan = computed(() => (bills.value || []).length)
         :bills="hasil"
         @toggle-paid="toggleBillPaid"
         @delete="deleteBill"
+        @edit="emit('edit', $event)"
       />
     </div>
   </section>
